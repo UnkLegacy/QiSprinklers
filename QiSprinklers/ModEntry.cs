@@ -1,11 +1,15 @@
 ﻿using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.TerrainFeatures;
+using StardewValley.Tools;
 using StardewValley.Locations;
-using StardewValley.Objects;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
+using StardewModdingAPI.Utilities;
+using System;
 using System.Collections.Generic;
+using System.Text;
+using System.Threading.Tasks;
 using System.Linq;
 using System.Reflection.Emit;
 using QiSprinklers.Framework;
@@ -13,22 +17,39 @@ using QiSprinklers.Framework;
 
 namespace QiSprinklers
 {
-    public class ModEntry : Mod
+    public class QiSprinklers : Mod
     {
         public static IModHelper ModHelper;
-        public static ModConfig Config;
-        // public static Texture2D ToolsTexture;
+        public ModConfig Config;
+        private Multiplayer mp;
+
+        enum AnimSize
+        {
+            SMALL,
+            MEDIUM,
+            LARGE,
+            XLARGE
+        }
 
         public override void Entry(IModHelper helper)
         {
             ModHelper = helper;
+            Config = Helper.ReadConfig<ModConfig>();
+            mp = Helper.Reflection.GetField<Multiplayer>(typeof(Game1), "multiplayer").GetValue();
 
-            Config = this.Helper.ReadConfig<ModConfig>();
+            Helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
+            Helper.Events.GameLoop.DayStarted += OnDayStarted;
+            Helper.Content.AssetEditors.Add(new AssetEditor());
 
-            helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
-            helper.Content.AssetEditors.Add(new AssetEditor());
+            if (Config.ActivateOnAction)
+            {
+                Helper.Events.Input.ButtonPressed += this.OnButtonPressed;
+            }
 
-            SprinklerInitializer.Init(helper.Events);
+            if (Config.ActivateOnPlacement)
+            {
+                Helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
+            }
         }
 
         /// <summary>Raised after the player loads a save slot and the world is initialised.</summary>
@@ -46,42 +67,12 @@ namespace QiSprinklers
                 catch { }
             }
 
-        }
-    }
-
-    public class ModConfig {
-        public int SprinklerRange { get; set; } = 3;
-    }
-
-    public class QiSprinklerItem {
-        public const int INDEX = 1113;
-        public const int PRICE = 2000;
-        public const int EDIBILITY = -300;
-        public const string TYPE = "Crafting";
-        public const int CATEGORY = Object.CraftingCategory;
-        public const int CRAFTING_LEVEL = 9;
-    }
-
-    // searches map for any currently placed qi sprinklers and:
-    //   - waters adjacent tiles
-    public static class SprinklerInitializer
-    {
-
-        public static void Init(IModEvents events)
-        {
-            events.GameLoop.DayStarted += OnDayStarted;
-            events.GameLoop.SaveLoaded += OnSaveLoaded;
-            events.World.ObjectListChanged += OnObjectListChanged;
-        }
-
-        private static void OnSaveLoaded(object sender, System.EventArgs e)
-        {
-            Object sprinkler;
+            StardewValley.Object sprinkler;
             foreach (GameLocation location in Game1.locations)
             {
                 if (location is GameLocation)
                 {
-                    foreach (KeyValuePair<Vector2, Object> pair in location.objects.Pairs)
+                    foreach (KeyValuePair<Vector2, StardewValley.Object> pair in location.objects.Pairs)
                     {
                         if (location.objects[pair.Key].ParentSheetIndex == QiSprinklerItem.INDEX)
                         {
@@ -93,33 +84,54 @@ namespace QiSprinklers
             }
         }
 
+        private void OnButtonPressed(object sender, ButtonPressedEventArgs e)
+        {
+            // Ingore event if world is not loaded and player is not interacting with the world
+            if (!Context.IsPlayerFree)
+                return;
+
+            if (e.Button.IsActionButton())
+            {
+                var tile = e.Cursor.GrabTile;
+                if (tile == null) return;
+
+                var obj = Game1.currentLocation.getObjectAtTile((int)tile.X, (int)tile.Y);
+                if (obj == null) return;
+
+                var currentItem = Game1.player.CurrentItem;
+
+                if (currentItem != null && currentItem.parentSheetIndex == 915 && (obj.heldObject.Value == null || obj.heldObject.Value.parentSheetIndex != 915)) //currently holding pressurized nozzle and sprinkler has no nozzle
+                {
+                    return;
+                }
+
+                ActivateSprinkler(obj);
+            }
+        }
         /// <summary>Raised after objects are added or removed in a location.</summary>
         /// <param name="sender">The event sender.</param>
         /// <param name="e">The event arguments.</param>
-        private static void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
+        private void OnObjectListChanged(object sender, ObjectListChangedEventArgs e)
         {
-            WaterDirt();
+            foreach (var pair in e.Added)
+            {
+                ActivateSprinkler(pair.Value);
+            }
         }
 
         /// <summary>Raised after the game begins a new day (including when the player loads a save).</summary>
         /// <param name="sender">The event sender.</param>
         /// <param name="e">The event arguments.</param>
-        private static void OnDayStarted(object sender, System.EventArgs e)
-        {
-            WaterDirt();
-        }
-
-        private static void WaterDirt()
+        private void OnDayStarted(object sender, System.EventArgs e)
         {
             foreach (GameLocation location in Game1.locations)
             {
-                foreach (Object obj in location.Objects.Values)
+                foreach (StardewValley.Object obj in location.Objects.Values)
                 {
                     if (obj.ParentSheetIndex == QiSprinklerItem.INDEX)
                     {
-
                         // add water spray animation
-                        location.TemporarySprites.Add(new TemporaryAnimatedSprite("TileSheets\\animations", new Rectangle(0, 2176, 320, 320), 60f, 4, 100, obj.TileLocation * 64 + new Vector2(-192, -208), false, false)
+                        location.TemporarySprites.Add(new TemporaryAnimatedSprite("TileSheets\\animations", new Rectangle(0, 2176, 320, 320), 60f, 4, 50, obj.TileLocation * 64 + new Vector2(-192, -208), false, false)
                         {
                             color = Color.White * 0.4f,
                             scale = 7f / 5f,
@@ -129,9 +141,9 @@ namespace QiSprinklers
 
                         if (location is Farm || location.IsGreenhouse)
                         {
-                            for (int index1 = (int)obj.TileLocation.X - ModEntry.Config.SprinklerRange; index1 <= obj.TileLocation.X + ModEntry.Config.SprinklerRange; ++index1)
+                            for (int index1 = (int)obj.TileLocation.X - Config.SprinklerRange; index1 <= obj.TileLocation.X + Config.SprinklerRange; ++index1)
                             {
-                                for (int index2 = (int)obj.TileLocation.Y - ModEntry.Config.SprinklerRange; index2 <= obj.TileLocation.Y + ModEntry.Config.SprinklerRange; ++index2)
+                                for (int index2 = (int)obj.TileLocation.Y - Config.SprinklerRange; index2 <= obj.TileLocation.Y + Config.SprinklerRange; ++index2)
                                 {
                                     Vector2 key = new Vector2(index1, index2);
                                     // water dirt
@@ -144,12 +156,218 @@ namespace QiSprinklers
                         }
                     }
                 }
+            } 
+        }
+
+        private void ActivateSprinkler(StardewValley.Object sprinkler)
+        {
+            // This function determines which sprinkler was activated
+            if (sprinkler == null) return;
+
+            if (sprinkler.IsSprinkler() || sprinkler.Name.Contains("Sprinkler"))
+            {
+                /* if (LineSprinklersIsLoaded && sprinkler.Name.Contains("Line"))
+                {
+                    ActivateLineSprinkler(sprinkler);
+                }
+                else if (PrismaticToolsApi != null && sprinkler.Name.Contains("Prismatic"))
+                {
+                    ActivatePrismaticSprinkler(sprinkler);
+                }
+                else if (BetterSprinklersApi != null)
+                {
+                    ActivateBetterSprinkler(sprinkler);
+                }
+                else if (SimpleSprinklerApi != null)
+                {
+                    ActivateSimpleSprinkler(sprinkler);
+                } */
+                if (sprinkler.Name.Contains("Qi Sprinkler"))
+                {
+                    ActivateQiSprinkler(sprinkler);
+                }
+                else
+                {
+                    ActivateVanillaSprinkler(sprinkler);
+                }
+            }
+        }
+        private void ActivateQiSprinkler(StardewValley.Object sprinkler)
+        {
+            Vector2 waterTile = sprinkler.TileLocation;
+            int SprinklerRange = Config.SprinklerRange;
+
+            PlayAnimation(waterTile, AnimSize.XLARGE);
+
+            waterTile.X -= SprinklerRange;
+            waterTile.Y -= SprinklerRange;
+            float waterTileYreset = waterTile.Y;
+
+            for (int x = -SprinklerRange; x <= SprinklerRange; x++)
+            {
+                for (int y = -SprinklerRange; y <= SprinklerRange; y++)
+                {
+                    waterTile.Y++;
+                    WaterTile(waterTile);
+                }
+                waterTile.X++;
+                waterTile.Y = waterTileYreset;
+                WaterTile(waterTile);
+            }
+        }
+        private void ActivateVanillaSprinkler(StardewValley.Object sprinkler)
+        {
+            Vector2 sprinklerTile = sprinkler.TileLocation;
+            int range = sprinkler.GetModifiedRadiusForSprinkler();
+            if (range < 0)
+            {
+                Monitor.Log($"Invalid sprinkler range: {range}", LogLevel.Error);
+                return;
+            }
+            List<Vector2> coverage = sprinkler.GetSprinklerTiles();
+            
+            foreach(Vector2 v in coverage)
+            {
+                Monitor.Log($"v: {v}", LogLevel.Debug);
+                WaterTile(v);
+                // FertilzeTile(v) after checking if fert in hands
+            }
+            switch(range)
+            {
+                case 0:
+                    PlayAnimation(sprinklerTile, AnimSize.SMALL);
+                    break;
+                case 1:
+                    PlayAnimation(sprinklerTile, AnimSize.MEDIUM);
+                    break;
+                case 2:
+                    PlayAnimation(sprinklerTile, AnimSize.LARGE);
+                    break;
+                default:
+                    PlayAnimation(sprinklerTile, AnimSize.XLARGE);
+                    break;
             }
         }
 
-        private static void FertilzeDirt()
+        private void WaterTile(Vector2 tile, bool useWatercanAnimation = false)
+        {
+            WateringCan can = new WateringCan();
+            GameLocation loc = Game1.currentLocation;
+
+            loc.terrainFeatures.TryGetValue(tile, out TerrainFeature terrainFeature);
+            if (terrainFeature != null)
+                terrainFeature.performToolAction(can, 0, tile, (GameLocation)null);
+
+            loc.Objects.TryGetValue(tile, out StardewValley.Object obj);
+            if (obj != null)
+                obj.performToolAction(can, (GameLocation)null);
+
+            //Watercan animation (only for sline sprinklers, because default animation don't make any sense here
+            if (mp != null && useWatercanAnimation)
+            {
+                mp.broadcastSprites(loc, new TemporaryAnimatedSprite[]
+                {
+                    new TemporaryAnimatedSprite(13, tile * (float)Game1.tileSize, Color.White, 10, Game1.random.NextDouble() < 0.5, 70f, 0, -1, -1f, -1, 0)
+                    {
+                        delayBeforeAnimationStart = 150
+                    }
+                });
+            }
+        }
+
+        private void PlayAnimation(Vector2 sprinklerTile, AnimSize size)
+        {
+            if (mp == null)
+                return;
+
+            int animDelay = Game1.random.Next(500);
+            float animId = (float)((double)sprinklerTile.X * 4000.0 + (double)sprinklerTile.Y);
+            Vector2 pos = sprinklerTile * (float)Game1.tileSize;
+            int numberOfLoops = 50;
+
+            switch (size)
+            {
+                case AnimSize.SMALL:
+                    mp.broadcastSprites(Game1.currentLocation, new TemporaryAnimatedSprite[]
+                    {
+                        new TemporaryAnimatedSprite(29, pos + new Vector2(0.0f, (float)(-Game1.tileSize * 3 / 4)), Color.White * 0.5f, 4, false, 60f, numberOfLoops, -1, -1f, -1, 0)
+                        {
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        },
+                        new TemporaryAnimatedSprite(29, pos + new Vector2((float)(Game1.tileSize * 3 / 4), 0.0f), Color.White * 0.5f, 4, false, 60f, numberOfLoops, -1, -1f, -1, 0)
+                        {
+                            rotation = 1.570796f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        },
+                        new TemporaryAnimatedSprite(29, pos + new Vector2(0.0f, (float)(Game1.tileSize * 3 / 4)), Color.White * 0.5f, 4, false, 60f, numberOfLoops, -1, -1f, -1, 0)
+                        {
+                            rotation = 3.141593f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        },
+                        new TemporaryAnimatedSprite(29, pos + new Vector2((float)(-Game1.tileSize * 3 / 4), 0.0f), Color.White * 0.5f, 4, false, 60f, numberOfLoops, -1, -1f, -1, 0)
+                        {
+                            rotation = 4.712389f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        }
+                    });
+                    break;
+                case AnimSize.MEDIUM:
+                    pos -= new Vector2(Game1.tileSize, Game1.tileSize);
+                    mp.broadcastSprites(Game1.currentLocation, new TemporaryAnimatedSprite[]
+                    {
+                        new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 1984, Game1.tileSize * 3, Game1.tileSize * 3), 60f, 3, numberOfLoops, pos, false, false)
+                        {
+                            color = Color.White * 0.4f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        }
+                    });
+                    break;
+                case AnimSize.LARGE:
+                    pos += new Vector2(-3 * Game1.tileSize + Game1.tileSize, -Game1.tileSize * 2);
+                    mp.broadcastSprites(Game1.currentLocation, new TemporaryAnimatedSprite[]
+                    {
+                        new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 2176, Game1.tileSize * 5, Game1.tileSize * 5), 60f, 4, numberOfLoops, pos, false, false)
+                        {
+                            color = Color.White * 0.4f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        }
+                    });
+                    break;
+                case AnimSize.XLARGE:
+                    pos += new Vector2(-4 * Game1.tileSize + Game1.tileSize, -Game1.tileSize * 3);
+                    mp.broadcastSprites(Game1.currentLocation, new TemporaryAnimatedSprite[]
+                    {
+                        new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 2176, Game1.tileSize * 5, Game1.tileSize * 5), 60f, 4, numberOfLoops, pos, false, false)
+                        {
+                            color = Color.White * 0.4f,
+                            scale = 7f / 5f,
+                            delayBeforeAnimationStart = animDelay,
+                            id = animId
+                        }
+                    });
+                    break;
+            }
+        }
+
+        private void FertilzeDirt()
         {
             // Do Stuff... and things
         }
+    }
+
+    public class QiSprinklerItem
+    {
+        public const int INDEX = 1113;
+        public const int PRICE = 2000;
+        public const int EDIBILITY = -300;
+        public const string TYPE = "Crafting";
+        public const int CATEGORY = StardewValley.Object.CraftingCategory;
+        public const int CRAFTING_LEVEL = 9;
     }
 }

@@ -9,8 +9,8 @@ namespace QiSprinklers.Framework
     public class AssetEditor : IAssetEditor
     {
 
-        private readonly string sprinklerName = ModEntry.ModHelper.Translation.Get("qiSprinkler.name");
-        private readonly string sprinklerDesc = ModEntry.ModHelper.Translation.Get("qiSprinkler.description");
+        private readonly string sprinklerName = QiSprinklers.ModHelper.Translation.Get("qiSprinkler.name");
+        private readonly string sprinklerDesc = QiSprinklers.ModHelper.Translation.Get("qiSprinkler.description");
 
         public bool CanEdit<T>(IAssetInfo asset)
         {
@@ -26,7 +26,7 @@ namespace QiSprinklers.Framework
 
             if (asset.AssetNameEquals("Maps/springobjects"))
             {
-                Texture2D sprinkler = ModEntry.ModHelper.Content.Load<Texture2D>("Assets/qiSprinkler.png", ContentSource.ModFolder);
+                Texture2D sprinkler = QiSprinklers.ModHelper.Content.Load<Texture2D>("Assets/qiSprinkler.png", ContentSource.ModFolder);
                 Texture2D old = asset.AsImage().Data;
                 asset.ReplaceWith(new Texture2D(Game1.graphics.GraphicsDevice, old.Width, System.Math.Max(old.Height, 1200 / 24 * 16)));
                 asset.AsImage().PatchImage(old);
