@@ -26,7 +26,7 @@ namespace QiSprinklers.Framework
 
             if (asset.AssetNameEquals("Maps/springobjects"))
             {
-                Texture2D sprinkler = QiSprinklers.ModHelper.Content.Load<Texture2D>("Assets/qiSprinkler.png", ContentSource.ModFolder);
+                Texture2D sprinkler = QiSprinklers.ModHelper.Content.Load<Texture2D>("Assets/qiSprinkler.png");
                 Texture2D old = asset.AsImage().Data;
                 asset.ReplaceWith(new Texture2D(Game1.graphics.GraphicsDevice, old.Width, System.Math.Max(old.Height, 1200 / 24 * 16)));
                 asset.AsImage().PatchImage(old);
