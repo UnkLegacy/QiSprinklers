@@ -194,25 +194,28 @@ namespace QiSprinklers
         }
         private void ActivateQiSprinkler(StardewValley.Object sprinkler)
         {
-            Vector2 waterTile = sprinkler.TileLocation;
+            Vector2 sprinklerTile = sprinkler.TileLocation;
             int SprinklerRange = Config.SprinklerRange;
 
-            PlayAnimation(waterTile, AnimSize.XLARGE);
+            PlayAnimation(sprinklerTile, AnimSize.XLARGE);
 
-            waterTile.X -= SprinklerRange;
-            waterTile.Y -= SprinklerRange;
-            float waterTileYreset = waterTile.Y;
+            sprinklerTile.X -= SprinklerRange;
+            sprinklerTile.Y -= SprinklerRange;
+            float sprinklerTileYreset = sprinklerTile.Y;
 
             for (int x = -SprinklerRange; x <= SprinklerRange; x++)
             {
                 for (int y = -SprinklerRange; y <= SprinklerRange; y++)
                 {
-                    waterTile.Y++;
-                    WaterTile(waterTile);
+                    WaterTile(sprinklerTile);
+                    MaybeFertilizeTile(sprinklerTile);
+                    sprinklerTile.Y++;
                 }
-                waterTile.X++;
-                waterTile.Y = waterTileYreset;
-                WaterTile(waterTile);
+
+                sprinklerTile.Y = sprinklerTileYreset;
+                WaterTile(sprinklerTile);
+                MaybeFertilizeTile(sprinklerTile);
+                sprinklerTile.X++;
             }
         }
         private void ActivateVanillaSprinkler(StardewValley.Object sprinkler)
@@ -228,9 +231,7 @@ namespace QiSprinklers
             
             foreach(Vector2 v in coverage)
             {
-                Monitor.Log($"v: {v}", LogLevel.Debug);
                 WaterTile(v);
-                // FertilzeTile(v) after checking if fert in hands
             }
             switch(range)
             {
@@ -272,6 +273,35 @@ namespace QiSprinklers
                         delayBeforeAnimationStart = 150
                     }
                 });
+            }
+        }
+
+        private void MaybeFertilizeTile(Vector2 tile)
+        {
+            var playerItem = Game1.player.CurrentItem;
+            if (playerItem != null)
+            {
+                var fertilizer = playerItem.parentSheetIndex;
+                int[] FertilizerList = { 368, 369, 370, 371, 465, 466, 918, 919, 920 };
+                if (Array.Exists(FertilizerList, fert => fert == fertilizer))
+                {
+                    GameLocation loc = Game1.currentLocation;
+                    Farmer player = Game1.player;
+                    loc.terrainFeatures.TryGetValue(tile, out TerrainFeature terrainFeature);
+                    
+                    if (terrainFeature is HoeDirt)
+                    {
+                        var dirt = loc.terrainFeatures[tile] as HoeDirt;
+
+                        // Check if player is holding fertilizer.  If they are, THROW IT ON THE GROUND.
+                        if (dirt.fertilizer.Value == 0)
+                        {
+                            loc.playSound("dirtyHit");
+                            dirt.fertilizer.Value = fertilizer;
+                            player.removeItemsFromInventory(fertilizer, 1);
+                        }
+                    }
+                }
             }
         }
 
@@ -353,11 +383,6 @@ namespace QiSprinklers
                     });
                     break;
             }
-        }
-
-        private void FertilzeDirt()
-        {
-            // Do Stuff... and things
         }
     }
 
