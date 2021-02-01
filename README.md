@@ -20,8 +20,8 @@ You can configure activation on player action/placement in the config.json file.
 - SMAPI 3.9.1 and Stardew Valley 1.5.3
   
 ## Credits
-- Heavily influcenced by Prismatic Tools by stokastic: https://www.nexusmods.com/stardewvalley/mods/2428
-- Heavily influcenced by Sprinkler Activation by Blaxsmith: https://www.nexusmods.com/stardewvalley/mods/7661
+- Heavily influenced by Prismatic Tools by stokastic: https://www.nexusmods.com/stardewvalley/mods/2428
+- Heavily influenced by Sprinkler Activation by Blaxsmith: https://www.nexusmods.com/stardewvalley/mods/7661
 
 ## Source
 I do not guarantee any future updates, etc.
