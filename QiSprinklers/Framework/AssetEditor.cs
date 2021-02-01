@@ -46,9 +46,7 @@ namespace QiSprinklers.Framework
                     newDict.Add(key, oldDict.Data[key]);
                     if (key.Equals("Iridium Sprinkler"))
                     {
-                        if (true)
-                            newDict.Add("Qi Sprinkler", $"645 1/Home/{QiSprinklerItem.INDEX}/false/Farming {QiSprinklerItem.CRAFTING_LEVEL}");
-                        else if (asset.Locale != "en")
+                        if (asset.Locale != "en")
                             newDict.Add("Qi Sprinkler", $"645 1 913 1 915 1/Home/{QiSprinklerItem.INDEX}/false/Farming {QiSprinklerItem.CRAFTING_LEVEL}/{sprinklerName}");
                         else
                             newDict.Add("Qi Sprinkler", $"645 1 913 1 915 1/Home/{QiSprinklerItem.INDEX}/false/Farming {QiSprinklerItem.CRAFTING_LEVEL}");
