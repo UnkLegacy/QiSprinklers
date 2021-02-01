@@ -84,6 +84,9 @@ namespace QiSprinklers
             }
         }
 
+        /// <summary>Raised after the player presses a button.</summary>
+        /// <param name="sender">The event sender.</param>
+        /// <param name="e">The event arguments.</param>
         private void OnButtonPressed(object sender, ButtonPressedEventArgs e)
         {
             // Ingore event if world is not loaded and player is not interacting with the world
@@ -100,7 +103,8 @@ namespace QiSprinklers
 
                 var currentItem = Game1.player.CurrentItem;
 
-                if (currentItem != null && currentItem.parentSheetIndex == 915 && (obj.heldObject.Value == null || obj.heldObject.Value.parentSheetIndex != 915)) //currently holding pressurized nozzle and sprinkler has no nozzle
+                // Check if currently holding a Pressure Nozzle and the Sprinkler has no nozzle
+                if (currentItem != null && currentItem.parentSheetIndex == 915 && (obj.heldObject.Value == null || obj.heldObject.Value.parentSheetIndex != 915))
                 {
                     return;
                 }
@@ -159,6 +163,8 @@ namespace QiSprinklers
             } 
         }
 
+        /// <summary>Attempts to activate the correct sprinkler.</summary>
+        /// <param name="sprinkler">The sprinkler object.</param>
         private void ActivateSprinkler(StardewValley.Object sprinkler)
         {
             // This function determines which sprinkler was activated
@@ -192,6 +198,9 @@ namespace QiSprinklers
                 }
             }
         }
+
+        /// <summary>Attempts to activate the Qi Sprinkler</summary>
+        /// <param name="sprinkler">The sprinkler object.</param>
         private void ActivateQiSprinkler(StardewValley.Object sprinkler)
         {
             Vector2 sprinklerTile = sprinkler.TileLocation;
@@ -218,6 +227,9 @@ namespace QiSprinklers
                 sprinklerTile.X++;
             }
         }
+
+        /// <summary>Attempts to activate the default sprinkler.</summary>
+        /// <param name="sprinkler">The sprinkler object.</param>
         private void ActivateVanillaSprinkler(StardewValley.Object sprinkler)
         {
             Vector2 sprinklerTile = sprinkler.TileLocation;
@@ -250,6 +262,9 @@ namespace QiSprinklers
             }
         }
 
+        /// <summary>Attempts to water a specific tile.</summary>
+        /// <param name="tile">The tile attempting to be watered.</param>
+        /// <param name="useWatercanAnimation">True if want to use the watering can animation.</param>
         private void WaterTile(Vector2 tile, bool useWatercanAnimation = false)
         {
             WateringCan can = new WateringCan();
@@ -276,24 +291,31 @@ namespace QiSprinklers
             }
         }
 
+        /// <summary>Attempts to fertilize a tile after the user clicks on a Qi Sprinkler.</summary>
+        /// <param name="tile">The tile attempting to be fertilized.</param>
         private void MaybeFertilizeTile(Vector2 tile)
         {
             var playerItem = Game1.player.CurrentItem;
+
+            // Check if the player is holding anything.
             if (playerItem != null)
             {
                 var fertilizer = playerItem.parentSheetIndex;
                 int[] FertilizerList = { 368, 369, 370, 371, 465, 466, 918, 919, 920 };
+
+                // Check if the player is holding fertilizer.
                 if (Array.Exists(FertilizerList, fert => fert == fertilizer))
                 {
                     GameLocation loc = Game1.currentLocation;
                     Farmer player = Game1.player;
                     loc.terrainFeatures.TryGetValue(tile, out TerrainFeature terrainFeature);
                     
+                    // Check if the tile being fertilized is Hoe'd dirt.
                     if (terrainFeature is HoeDirt)
                     {
                         var dirt = loc.terrainFeatures[tile] as HoeDirt;
 
-                        // Check if player is holding fertilizer.  If they are, THROW IT ON THE GROUND.
+                        // Check if player is holding fertilizer.  If they are, THROW IT ON THE GROUND, and remove 1 from inventory.
                         if (dirt.fertilizer.Value == 0)
                         {
                             loc.playSound("dirtyHit");
@@ -305,6 +327,9 @@ namespace QiSprinklers
             }
         }
 
+        /// <summary>Play the "water cloud" animation after user activates sprinkler.</summary>
+        /// <param name="sprinklerTile">The origin tile of the sprinkler.</param>
+        /// <param name="size">The size of the sprinkler's range.</param>
         private void PlayAnimation(Vector2 sprinklerTile, AnimSize size)
         {
             if (mp == null)
@@ -313,7 +338,7 @@ namespace QiSprinklers
             int animDelay = Game1.random.Next(500);
             float animId = (float)((double)sprinklerTile.X * 4000.0 + (double)sprinklerTile.Y);
             Vector2 pos = sprinklerTile * (float)Game1.tileSize;
-            int numberOfLoops = 50;
+            int numberOfLoops = 25;
 
             switch (size)
             {
@@ -351,7 +376,7 @@ namespace QiSprinklers
                     {
                         new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 1984, Game1.tileSize * 3, Game1.tileSize * 3), 60f, 3, numberOfLoops, pos, false, false)
                         {
-                            color = Color.White * 0.4f,
+                            color = Color.White * 0.2f,
                             delayBeforeAnimationStart = animDelay,
                             id = animId
                         }
@@ -363,7 +388,7 @@ namespace QiSprinklers
                     {
                         new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 2176, Game1.tileSize * 5, Game1.tileSize * 5), 60f, 4, numberOfLoops, pos, false, false)
                         {
-                            color = Color.White * 0.4f,
+                            color = Color.White * 0.2f,
                             delayBeforeAnimationStart = animDelay,
                             id = animId
                         }
@@ -375,7 +400,7 @@ namespace QiSprinklers
                     {
                         new TemporaryAnimatedSprite(Game1.animations.Name, new Rectangle(0, 2176, Game1.tileSize * 5, Game1.tileSize * 5), 60f, 4, numberOfLoops, pos, false, false)
                         {
-                            color = Color.White * 0.4f,
+                            color = Color.White * 0.2f,
                             scale = 7f / 5f,
                             delayBeforeAnimationStart = animDelay,
                             id = animId
