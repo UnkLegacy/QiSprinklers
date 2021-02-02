@@ -143,7 +143,7 @@ namespace QiSprinklers
                             id = obj.TileLocation.X * 4000f + obj.TileLocation.Y
                         });
 
-                        if (location is Farm || location.IsGreenhouse)
+                        if (location is Farm || location.IsGreenhouse || location is IslandWest)
                         {
                             for (int index1 = (int)obj.TileLocation.X - Config.SprinklerRange; index1 <= obj.TileLocation.X + Config.SprinklerRange; ++index1)
                             {
